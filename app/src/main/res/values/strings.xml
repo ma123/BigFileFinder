@@ -1,0 +1,10 @@
+<resources>
+    <string name="app_name">BigFileFinder</string>
+    <string name="browse">Browse</string>
+    <string name="search">Search</string>
+    <string name="zero">0</string>
+    <string name="none">None</string>
+    <string name="chosen_path">This path is already chosen!!!</string>
+    <string name="search_begun">The search has begun</string>
+    <string name="select_paths">Please select some paths</string>
+</resources>
