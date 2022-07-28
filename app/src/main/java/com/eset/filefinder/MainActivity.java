@@ -1,26 +1,17 @@
 package com.eset.filefinder;
 
-
-import android.Manifest;
 import android.app.Activity;
 import android.content.Intent;
-import android.content.pm.PackageManager;
-import android.database.Cursor;
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.net.Uri;
+import android.os.AsyncTask;
 import android.os.Bundle;
-import android.provider.DocumentsContract;
-import android.provider.OpenableColumns;
-import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
-import android.widget.ImageView;
+import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import java.io.File;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -29,38 +20,31 @@ import androidx.activity.result.ActivityResultCallback;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.app.ActivityCompat;
-import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 public class MainActivity extends AppCompatActivity {
 
     private List<String> listSelectedPaths = new LinkedList<>();
+    private List<Uri> listSelectedUri = new LinkedList<>();
     private List<String> listSelectedFiles = new LinkedList<>();
-    private int numberOfFiles = 0;
+    private ProgressBar simpleProgressBar;
+    private Button btnBrowse;
+    private Button btnSearch;
+    private EditText etxNumberOfFiles;
+    private TextView txtInfo;
+    private FileAdapter fileAdapter;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        Button btnBrowse = this.findViewById(R.id.btn_browse);
-        Button btnSearch = this.findViewById(R.id.btn_search);
-        EditText etxNumberOfFiles = this.findViewById(R.id.etx_number_of_files);
-        numberOfFiles = Integer.parseInt(etxNumberOfFiles.getText().toString());
-
-        File imgFile = new  File("/storage/emulated/0/Android/media/com.whatsapp/WhatsApp/Media/WhatsApp Images/IMG-20220602-WA0000.jpg");
-
-        if(imgFile.exists()){
-
-            Bitmap myBitmap = BitmapFactory.decodeFile(imgFile.getAbsolutePath());
-
-            ImageView myImage = (ImageView) findViewById(R.id.imageviewTest);
-
-            myImage.setImageBitmap(myBitmap);
-
-        }
+        btnBrowse = this.findViewById(R.id.btn_browse);
+        btnSearch = this.findViewById(R.id.btn_search);
+        etxNumberOfFiles = this.findViewById(R.id.etx_number_of_files);
+        simpleProgressBar = findViewById(R.id.search_bar);
+        txtInfo = findViewById(R.id.txt_info);
 
         RecyclerView recyclerViewPath = this.findViewById(R.id.recyclerview_paths);
         recyclerViewPath.setLayoutManager(new LinearLayoutManager(this));
@@ -69,7 +53,7 @@ public class MainActivity extends AppCompatActivity {
 
         RecyclerView recyclerViewFiles = this.findViewById(R.id.recyclerview_files);
         recyclerViewFiles.setLayoutManager(new LinearLayoutManager(this));
-        FileAdapter fileAdapter = new FileAdapter(listSelectedFiles);
+        fileAdapter = new FileAdapter(listSelectedFiles);
         recyclerViewFiles.setAdapter(fileAdapter);
 
         ActivityResultLauncher<Intent> activityResultLauncher = registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), new ActivityResultCallback<ActivityResult>() {
@@ -79,25 +63,15 @@ public class MainActivity extends AppCompatActivity {
                 {
                     Intent intent = result.getData();
                     Uri uri = intent.getData();
-                    String fileName = uri.getLastPathSegment();
 
-                    String FilePath = intent.getData().getPath();
-                    String FileName = intent.getData().getLastPathSegment();
-                    int lastPos = FilePath.length() - FileName.length();
-                    String Folder = FilePath.substring(0, lastPos);
-
-                    Log.d("Files", "Full Path: \n" + intent.getData().getPath() + "\n");
-                    Log.d("Files", "Folder: \n" + intent.getData().getLastPathSegment() + "\n");
-                    Log.d("Files", "File Name: \n" + intent.getData().getEncodedPath() + "\n");
-
-
-                    if(listSelectedPaths.contains(FilePath))
+                    if(listSelectedPaths.contains(uri.getPath()))
                     {
                         Toast.makeText(getBaseContext(), R.string.chosen_path, Toast.LENGTH_SHORT).show();
                     }
                     else {
-                        listSelectedPaths.add(FilePath);
-                        pathAdapter.notifyItemInserted(listSelectedPaths.size()-1);
+                        listSelectedPaths.add(uri.getPath());
+                        listSelectedUri.add(uri);
+                        pathAdapter.notifyDataSetChanged();
                     }
                 }
             }
@@ -114,22 +88,51 @@ public class MainActivity extends AppCompatActivity {
         btnSearch.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                if(listSelectedPaths.size() != 0)
-                {
-                    Toast.makeText(getApplicationContext(), R.string.search_begun, Toast.LENGTH_SHORT).show();
-                    // TODO nieco krutiace aby bolo vidno ze sa nieco deje
-
-
-                    BigFileFinder bigFileFinder = new BigFileFinder(numberOfFiles, listSelectedPaths);
-                    listSelectedFiles = bigFileFinder.search();
-
-                    fileAdapter.notifyItemInserted(listSelectedFiles.size()-1);
-                }
-                else {
-                    Toast.makeText(getApplicationContext(), R.string.select_paths, Toast.LENGTH_SHORT).show();
-                }
-
+                txtInfo.setText("");
+                AsyncTaskExample asyncTask=new AsyncTaskExample();
+                asyncTask.execute();
             }
         });
+    }
+
+    private class AsyncTaskExample extends AsyncTask<Void, Void, List<String>> {
+        @Override
+        protected void onPreExecute() {
+            super.onPreExecute();
+            btnBrowse.setEnabled(false);
+            btnSearch.setEnabled(false);
+            simpleProgressBar.setVisibility(View.VISIBLE);
+        }
+
+        @Override
+        protected List<String> doInBackground(Void... voids) {
+            if(listSelectedPaths.size() != 0)
+            {
+                int numberOfFiles = Integer.parseInt(etxNumberOfFiles.getText().toString());
+                if(numberOfFiles > 0)
+                {
+                    txtInfo.setText(R.string.search_begun);
+                    BigFileFinder bigFileFinder = new BigFileFinder(getApplicationContext(), listSelectedUri);
+
+                    listSelectedFiles = bigFileFinder.search(numberOfFiles);
+                }
+                else {
+                    txtInfo.setText(R.string.select_number_of_files);
+                }
+            }
+            else {
+                txtInfo.setText(R.string.select_paths);
+            }
+
+            return listSelectedFiles;
+        }
+
+        @Override
+        protected void onPostExecute(List<String> list) {
+            simpleProgressBar.setVisibility(View.INVISIBLE);
+            btnBrowse.setEnabled(true);
+            btnSearch.setEnabled(true);
+            fileAdapter.updateData(listSelectedFiles);
+        }
     }
 }

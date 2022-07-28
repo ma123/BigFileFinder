@@ -16,6 +16,12 @@ public class FileAdapter extends RecyclerView.Adapter<FileViewHolder>{
         this.items = items;
     }
 
+    public void updateData(List<String> updateItems) {
+        items.clear();
+        items.addAll(updateItems);
+        notifyDataSetChanged();
+    }
+
     @NonNull
     @Override
     public FileViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
